@@ -19,7 +19,7 @@ entity link_layer_32bit is
 			--Interface with Physical Layer
 			tx_data_out		:	out std_logic_vector(31 downto 0);
 			rx_data_in		:	in std_logic_vector(31 downto 0);
-			phy_status_in	:	in std_logic_vector(1 downto 0);		-- [PHYRDY/n, Dec_Err]
+			phy_status_in	:	in std_logic_vector(2 downto 0);		-- [primitive, PHYRDY/n, Dec_Err]
 			phy_status_out	:	out std_logic_vector(0 downto 0);		-- [clear status signals]
 			perform_init	:	out std_logic);
 end entity;
@@ -40,8 +40,7 @@ component crc_gen_32 is
         data       : in  std_logic_vector(31 downto 0); 
         data_valid : in  std_logic; 
         eoc        : in  std_logic; 
-        crc        : out std_logic_vector(31 downto 0); 
-        crc_valid  : out std_logic);
+        crc        : out std_logic_vector(31 downto 0));
 end component;
 
 component scrambler is 
@@ -62,10 +61,9 @@ signal s_tx_data_in			: std_logic_vector(31 downto 0);		-- transmit data in (fro
 signal s_rx_data_out		: std_logic_vector(31 downto 0);		-- receive data out (from Physical Layer)
 signal s_tx_data_out		: std_logic_vector(31 downto 0);		-- transmit data out (Physical Layer)
 signal s_rx_data_in			: std_logic_vector(31 downto 0);		-- receive data in (from Physical Layer)
-signal s_phy_status_in 		: std_logic_vector(1 downto 0);			-- input status vector from the Physical Layer. Checked in next_state_logic and output_logic
+signal s_phy_status_in 		: std_logic_vector(2 downto 0);			-- input status vector from the Physical Layer. Checked in next_state_logic and output_logic
 signal s_phy_status_out		: std_logic_vector(0 downto 0);			-- output status vector to the Physical Layer. Updated during output_logic
 signal s_crc				: std_logic_vector(31 downto 0);		-- 32bit CRC output from the crc generator component, to be appended to a write or used to check a read
-signal s_crc_valid			: std_logic;							-- flag indicating the crc is ready to be used
 
 	-- scrambler (lfsr) signals
 signal s_lfsr_data_in		: std_logic_vector(31 downto 0);		-- data from Transport to be scrambled, or data from Physical to be descrambled
@@ -93,7 +91,6 @@ s_phy_status_in 	<= phy_status_in;
 phy_status_out 		<= s_phy_status_out;
 
 -- call components
-
 lfsr_component : scrambler
          port map  (data_in				=> s_lfsr_data_in,
 					scram_en			=> s_lfsr_en,
@@ -109,8 +106,7 @@ crc_component : crc_gen_32
 				   data       			=> s_crc_data_in,
 				   data_valid 			=> s_data_valid,
 				   eoc        			=> s_eof,
-				   crc        			=> s_crc, 
-				   crc_valid  			=> s_crc_valid);
+				   crc        			=> s_crc);
 				   
  ----------------------------------------------------------------------------------
 			   
@@ -120,12 +116,12 @@ STATE_MEMORY: process (s_clk,s_rst_n)
     begin
       if (s_rst_n = '0') then 
         current_state <= L_RESET;
-      elsif (s_clk'event and s_clk='1') then
+      elsif (rising_edge(s_clk)) then
         current_state <= next_state;
       end if;
     end process;
     
-    NEXT_STATE_LOGIC: process (current_state, s_rx_data_in, s_trans_status_in, s_tx_data_in, s_phy_status_in, s_crc_valid)
+    NEXT_STATE_LOGIC: process (current_state, s_rx_data_in, s_trans_status_in, s_tx_data_in, s_phy_status_in, s_crc)
       begin 
         case (current_state) is
 			-- Idle SM states (top level)
@@ -347,7 +343,7 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 										next_state <= L_BadEnd;
 									elsif (s_trans_status_in(1)='1') then
 										next_state <= L_BadEnd;
-									elsif (s_crc_valid='0') then
+									elsif (s_crc /= x"00000000") then
 										next_state <= L_BadEnd;
 									else 
 										next_state <= L_GoodCRC;
@@ -370,7 +366,7 @@ STATE_MEMORY: process (s_clk,s_rst_n)
         end case;
       end process;
           
-    OUTPUT_LOGIC: process (current_state, s_rx_data_in, s_trans_status_in, s_tx_data_in, s_phy_status_in, s_lfsr_data_out, s_crc)
+    OUTPUT_LOGIC: process (current_state, s_rx_data_in, s_trans_status_in, s_tx_data_in, s_phy_status_in, s_lfsr_data_out, s_crc, s_sof)
       begin
         case (current_state) is
 					-- Idle SM states (top level)
@@ -420,11 +416,17 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 										s_lfsr_data_in 				<= s_crc;
 										s_data_valid				<= '0';
 									end if;
+									if (s_trans_status_in(4) = '1' and s_rx_data_in(31 downto 0)=HOLDp) then		-- more data to transmit and Physical sends HOLDAp
+										s_data_valid				<= '0';
+										s_lfsr_en					<= '0';
+									end if;
 			when L_RcvrHold	  	=> s_tx_data_out(31 downto 0) 		<= HOLDAp;
 									s_data_valid 					<= '0';
 									s_lfsr_en						<= '0';
 									s_crc_data_in					<= x"00000000";
 			when L_SendHold	  	=> s_tx_data_out(31 downto 0) 		<= HOLDp;
+									s_data_valid				<= '0';
+									s_lfsr_en					<= '0';
 			when L_SendCRC	  	=> 	s_tx_data_out					<= s_lfsr_data_out;
 									s_eof 							<= '0';
 									s_data_valid 					<= '0';
@@ -435,7 +437,7 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 			when L_RcvChkRdy	=> s_tx_data_out(31 downto 0) 		<= R_RDYp;
 			when L_RcvWaitFifo	=> s_tx_data_out(31 downto 0) 		<= SYNCp;
 									s_data_valid 					<= '0';
-									--s_sof 							<= '1';
+									s_sof 							<= '1';
 									s_lfsr_rst						<= '0';
 			when L_RcvData		=> if(s_trans_status_in(3) = '1') then
 										s_tx_data_out(31 downto 0) 	<= DMATp;
@@ -443,32 +445,47 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 										s_crc_data_in				<= x"00000000";
 									else 
 										s_tx_data_out(31 downto 0) 	<= R_IPp;
-										s_rx_data_out 				<= rx_data_in;
+										--s_rx_data_out 				<= rx_data_in;
 										s_lfsr_data_in				<= s_rx_data_in;
-										s_rx_data_out				<= s_lfsr_data_out;
+										
 										s_crc_data_in				<= s_lfsr_data_out;
 										s_lfsr_en					<= '1';
-										s_sof						<= '1';
 										s_lfsr_rst					<= '1';
 										if (s_lfsr_data_out'event) then
 											s_data_valid <= '1';
+											s_sof 		 <= '0';
 										end if;
 										if (s_rx_data_in(31 downto 0)=EOFp) then
 											s_eof 						<= '1';
 											s_lfsr_data_in 				<= s_crc;
+										end if;
+										if (s_sof = '0') then
+											s_rx_data_out				<= s_lfsr_data_out;
+										end if;
+										if (s_rx_data_in(31 downto 0)=HOLDp) then		-- more data to transmit and Physical sends HOLDAp
+										--s_data_valid				<= '0';
+										s_lfsr_en					<= '0';
+										end if;
+										if (next_state = L_RcvEOF) then					-- don't send CRC to Transport.
+											s_rx_data_out 			<= x"00000000";		-- this actually needs to be something else as a placeholder
 										end if;
 									end if;
 			when L_Hold			=> s_tx_data_out(31 downto 0) 		<= HOLDp;
 									s_data_valid 					<= '0';
 									s_lfsr_en						<= '0';
 									s_crc_data_in					<= x"00000000";
+									s_sof							<= '0';
+									s_lfsr_en						<= '0';
 			when L_RcvHold		=> s_data_valid 					<= '0';
 									s_crc_data_in					<= x"00000000";
+									s_sof							<= '0';
+									s_lfsr_en					<= '0';
 									if(s_trans_status_in(3) = '1') then
 										s_tx_data_out(31 downto 0) 	<= DMATp;
 									else 
 										s_tx_data_out(31 downto 0) 	<= HoldAp;
 									end if;
+									
 			when L_RcvEOF		=> s_tx_data_out(31 downto 0) 		<= R_IPp;
 									s_eof 							<= '1';
 									s_data_valid					<= '0';
@@ -487,9 +504,4 @@ STATE_MEMORY: process (s_clk,s_rst_n)
         end case;
       end process;
 	  
-	  
-	  
-
-
-
 end architecture; 
