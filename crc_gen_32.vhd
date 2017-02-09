@@ -41,8 +41,7 @@ ENTITY crc_gen_32 IS
            data       : IN  STD_LOGIC_VECTOR(31 DOWNTO 0); 
            data_valid : IN  STD_LOGIC; 
            eoc        : IN  STD_LOGIC; 
-           crc        : OUT STD_LOGIC_VECTOR(31 DOWNTO 0); 
-           crc_valid  : OUT STD_LOGIC 
+           crc        : OUT STD_LOGIC_VECTOR(31 DOWNTO 0)
        );
 END crc_gen_32; 
 
@@ -101,26 +100,12 @@ crc_gen_process : PROCESS(clock, reset, data_valid)
 BEGIN                                    
  IF(reset = '0') THEN  
     crc_r <= crc_const;
- ELSIF( clock 'EVENT AND clock = '1') THEN 
+ ELSIF(rising_edge(clock)) THEN 
     IF(data_valid = '1') THEN 
          crc_r <= crc_c; 
     END IF; 
  END IF;    
 END PROCESS crc_gen_process;      
-    
-
-crc_valid_gen : PROCESS(data_valid, eoc, reset) 
-BEGIN                                    
- IF(reset = '0') THEN 
-     crc_valid <= '0'; 
- ELSE
-    IF(data_valid = '1' AND eoc = '1') THEN 
-        crc_valid <= '1'; 
-    ELSE 
-        crc_valid <= '0'; 
-    END IF; 
- END IF;    
-END PROCESS crc_valid_gen; 
 
 crc <= crc_r;
 
