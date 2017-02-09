@@ -469,13 +469,18 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 										if (next_state = L_RcvEOF) then					-- don't send CRC to Transport.
 											s_rx_data_out 			<= x"00000000";		-- this actually needs to be something else as a placeholder
 										end if;
+										if (s_trans_status_in(6) = '0') then
+											s_lfsr_en				<= '0';
+										end if;
 									end if;
 			when L_Hold			=> s_tx_data_out(31 downto 0) 		<= HOLDp;
 									s_data_valid 					<= '0';
 									s_lfsr_en						<= '0';
 									s_crc_data_in					<= x"00000000";
 									s_sof							<= '0';
-									s_lfsr_en						<= '0';
+									if (s_trans_status_in(6) = '1') then
+										s_lfsr_en					<= '1';
+									end if;
 			when L_RcvHold		=> s_data_valid 					<= '0';
 									s_crc_data_in					<= x"00000000";
 									s_sof							<= '0';
