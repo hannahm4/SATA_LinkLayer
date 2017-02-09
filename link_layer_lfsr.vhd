@@ -81,7 +81,7 @@ begin
       if (rst = '0') then 
         lfsr_q <= b"1111111111111111";
         data_out <= b"00000000000000000000000000000000";
-      elsif (clk'EVENT and clk = '1') then 
+      elsif (rising_edge(clk)) then 
         if (scram_rst = '0') then 
           lfsr_q <= b"1111111111111111";
         elsif (scram_en = '1') then 
