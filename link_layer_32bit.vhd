@@ -12,7 +12,7 @@ entity link_layer_32bit is
 
 			--Interface with Transport Layer
 			trans_status_in :	in std_logic_vector(7 downto 0);		-- [FIFO_RDY/n, transmit request, data complete, escape, bad FIS, error, good FIS]
-			trans_status_out:	out std_logic_vector(2 downto 0);		-- [crc good/bad, comm error, fail transmit]
+			trans_status_out:	out std_logic_vector(5 downto 0);		-- [Link Idle, transmit bad status, transmit good status, crc good/bad, comm error, fail transmit]
 			tx_data_in		:	in std_logic_vector(31 downto 0);
 			rx_data_out		:	out std_logic_vector(31 downto 0);
 
@@ -56,7 +56,7 @@ signal s_rst_n 				: std_logic;							-- active low reset
 
 	-- state machine signals
 signal s_trans_status_in 	: std_logic_vector(7 downto 0);			-- input status vector from the Transport Layer. Checked in next_state_logic and output_logic
-signal s_trans_status_out	: std_logic_vector(2 downto 0);			-- output status vector to the Transport Layer. Updated during output_logic
+signal s_trans_status_out	: std_logic_vector(5 downto 0);			-- output status vector to the Transport Layer. Updated during output_logic
 signal s_tx_data_in			: std_logic_vector(31 downto 0);		-- transmit data in (from Transport Layer)
 signal s_rx_data_out		: std_logic_vector(31 downto 0);		-- receive data out (from Physical Layer)
 signal s_tx_data_out		: std_logic_vector(31 downto 0);		-- transmit data out (Physical Layer)
@@ -373,6 +373,9 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 			when L_Idle  		=> s_tx_data_out(31 downto 0) 		<= SYNCp;
 									s_phy_status_out(1)				<= '1';
 									s_data_valid 					<= '0';
+									s_trans_status_out(5)			<= '1';				-- inform the Transport Layer that the Link Layer is Idle
+									s_trans_status_out(4) 			<= '0';				-- reset the transmit status to zero
+									s_trans_status_out(3) 			<= '0';				-- reset the transmit status to zero
 			when L_SyncEscape  	=> s_trans_status_out(0)  			<= '1';
 									s_data_valid 					<= '0';
 			when L_NoCommErr  	=> s_tx_data_out(31 downto 0) 		<= ALIGNp;
@@ -381,11 +384,12 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 									s_trans_status_out(1)  			<= '1';			-- comm_err
 									s_trans_status_out(0) 			<= '1';			-- fail transmit
 									s_data_valid 					<= '0';
+									s_trans_status_out(5)			<= '0';				-- inform the Transport Layer that the Link Layer is not Idle
 			when L_NoComm  		=> s_tx_data_out(31 downto 0) 		<= ALIGNp;
 									s_phy_status_out(1)				<= '1';
 			when L_SendAlign  	=> s_tx_data_out(31 downto 0) 		<= ALIGNp;
 									s_phy_status_out(1)				<= '1';
-			when L_RESET	  	=> s_trans_status_out(2 downto 0)	<= "000";
+			when L_RESET	  	=> s_trans_status_out(5 downto 0)	<= "000000";
 									s_phy_status_out(1 downto 0) 	<= "00";
 									s_rx_data_out 					<= x"00000000";
 									s_tx_data_out 					<= x"00000000";
@@ -399,10 +403,12 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 			-- Power Management SM states
 			when L_PMDeny	  	=> s_tx_data_out(31 downto 0) 		<= PMNAKp;
 									s_phy_status_out(1)				<= '1';
+									s_trans_status_out(5)			<= '0';				-- inform the Transport Layer that the Link Layer is not Idle
 			
 			-- Transmit SM states
 			when L_SendChkRdy	=> s_tx_data_out(31 downto 0) 		<= X_RDYp;
 									s_phy_status_out(1)				<= '1';
+									s_trans_status_out(5)			<= '0';				-- inform the Transport Layer that the Link Layer is not Idle
 			when L_SendSOF	  	=> s_tx_data_out(31 downto 0) 		<= SOFp;
 									s_phy_status_out(1)				<= '1';
 									s_sof	 						<= '1';
@@ -435,8 +441,8 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 									s_crc_data_in					<= x"00000000";
 			when L_SendHold	  	=> s_tx_data_out(31 downto 0) 		<= HOLDp;
 									s_phy_status_out(1)				<= '1';
-									s_data_valid				<= '0';
-									s_lfsr_en					<= '0';
+									s_data_valid					<= '0';
+									s_lfsr_en						<= '0';
 			when L_SendCRC	  	=> 	s_tx_data_out					<= s_lfsr_data_out;
 									s_eof 							<= '0';
 									s_data_valid 					<= '0';
@@ -445,6 +451,11 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 									s_phy_status_out(1)				<= '1';
 			when L_Wait		  	=> s_tx_data_out(31 downto 0) 		<= WTRMp;			-- also need status to Transport
 									s_phy_status_out(1)				<= '1';
+									if(s_phy_status_in(2) = '1' and s_rx_data_in = R_OKp) then
+										s_trans_status_out(3) 		<= '1';
+									elsif(s_phy_status_in(2) = '1' and s_rx_data_in = R_ERRp) then
+										s_trans_status_out(4) 		<= '1';
+									end if;
 			-- Receive SM states
 			when L_RcvChkRdy	=> s_tx_data_out(31 downto 0) 		<= R_RDYp;
 									s_phy_status_out(1)				<= '1';
@@ -453,6 +464,7 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 									s_data_valid 					<= '0';
 									s_sof 							<= '1';
 									s_lfsr_rst						<= '0';
+									s_trans_status_out(5)			<= '0';				-- inform the Transport Layer that the Link Layer is not Idle
 			when L_RcvData		=> if(s_trans_status_in(3) = '1') then
 										s_tx_data_out(31 downto 0) 	<= DMATp;
 										s_phy_status_out(1)				<= '1';
