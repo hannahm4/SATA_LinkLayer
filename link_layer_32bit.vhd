@@ -110,6 +110,14 @@ constant c_l_clear_status	 	: integer := 0;						-- Asserted to indicate to the 
   signal current_state, next_state : State_Type;
   
 -- components
+	-- linear feedback shift register (lfsr) scrambler/descrambler component
+component scrambler is 
+  port (data_in : in std_logic_vector (31 downto 0);
+		scram_en, scram_rst , rst, clk : in std_logic;
+		data_out : out std_logic_vector (31 downto 0));
+end component;
+
+	-- crc generator component
 component crc_gen_32 is
    port(clk	       : in  std_logic; 
         reset      : in  std_logic; 
@@ -118,12 +126,6 @@ component crc_gen_32 is
         data_valid : in  std_logic; 
         eoc        : in  std_logic; 
         crc        : out std_logic_vector(31 downto 0));
-end component;
-
-component scrambler is 
-  port (data_in : in std_logic_vector (31 downto 0);
-		scram_en, scram_rst , rst, clk : in std_logic;
-		data_out : out std_logic_vector (31 downto 0));
 end component;
 
 -- signals 
@@ -152,7 +154,7 @@ signal s_lfsr_rst			: std_logic;							-- internal reset signal to reset scrambl
 signal s_crc_data_in		: std_logic_vector(31 downto 0);		-- data from which the CRC is calculated
 signal s_sof				: std_logic;							-- begin CRC generator
 signal s_eof				: std_logic;							-- end CRC generator
-signal s_data_valid			: std_logic;							-- flag indicating that the input data is valid. Used to pause CRC computation
+signal s_crc_data_valid			: std_logic;							-- flag indicating that the input data is valid. Used to pause CRC computation
 signal s_rx_data_in_temp	: std_logic_vector(31 downto 0);		-- vector that holds the previous primitive
 signal s_cont_flag			: std_logic;							-- flag to indicate that CONTp has been received
 
@@ -169,13 +171,13 @@ s_phy_status_in 	<= phy_status_in;
 phy_status_out 		<= s_phy_status_out;
 
 -- Receive CONTp Functionality (assigns s_rx_data_in)
-CONTP_MEMORY: process (s_clk,s_rst_n,s_phy_status_in,rx_data_in)
+CONTP_MEMORY: process (s_clk,s_rst_n,s_phy_status_in,rx_data_in)						-- memory to latch the previous valid primitive from the Physical Layer
     begin
       if (s_rst_n = '0') then 
-        s_rx_data_in_temp	<= x"00000000";
+        s_rx_data_in_temp	<= x"00000000";												-- initialize the temp value when reset is active
       elsif (rising_edge(s_clk)) then
 		if(rx_data_in /= CONTp and s_phy_status_in(c_l_primitive_in) = '1') then
-			s_rx_data_in_temp <= s_rx_data_in;
+			s_rx_data_in_temp <= s_rx_data_in;											-- update the temp value if there is a valid primitive from the Physical Layer that is not CONTp
 		end if;
       end if;
 	  end process;
@@ -213,7 +215,7 @@ crc_component : crc_gen_32
 				   reset      			=> s_rst_n,
 				   soc        			=> s_sof,
 				   data       			=> s_crc_data_in,
-				   data_valid 			=> s_data_valid,
+				   data_valid 			=> s_crc_data_valid,
 				   eoc        			=> s_eof,
 				   crc        			=> s_crc);
 				   
@@ -480,85 +482,87 @@ STATE_MEMORY: process (s_clk,s_rst_n)
         case (current_state) is
 					-- Idle SM states (top level)
 			when L_Idle  		=> s_tx_data_out(31 downto 0) 						<= SYNCp;
-									s_phy_status_out(c_l_primitive_out)								<= '1';
-									s_data_valid 									<= '0';
+									s_phy_status_out(c_l_primitive_out)				<= '1';
+									s_crc_data_valid 								<= '0';
 									s_trans_status_out(c_l_link_idle)				<= '1';				-- inform the Transport Layer that the Link Layer is Idle
 									s_trans_status_out(c_l_transmit_bad) 			<= '0';				-- reset the transmit status to zero
 									s_trans_status_out(c_l_transmit_good) 			<= '0';				-- reset the transmit status to zero
+									s_trans_status_out(c_l_crc_good) 				<= '0';				-- reset the CRC valid flag to zero
 			when L_SyncEscape  	=> s_trans_status_out(c_l_fail_transmit)  			<= '1';
-									s_data_valid 									<= '0';
+									s_crc_data_valid 								<= '0';
 			when L_NoCommErr  	=> s_tx_data_out(31 downto 0) 						<= ALIGNp;
-									s_phy_status_out(c_l_primitive_out)								<= '1';
+									s_phy_status_out(c_l_primitive_out)				<= '1';
 									s_phy_status_out(0) 							<= '1';
-									s_trans_status_out(c_l_comm_err)  				<= '1';			-- comm_err
-									s_trans_status_out(c_l_fail_transmit) 			<= '1';			-- fail transmit
-									s_data_valid 									<= '0';
+									s_trans_status_out(c_l_comm_err)  				<= '1';				-- inform the Transport Layer that there has been a comm error
+									s_trans_status_out(c_l_fail_transmit) 			<= '1';				-- inform the Transport Layer that the transmission failed
+									s_crc_data_valid  								<= '0';				-- inform the CRC generator that the input data is no longer valid
 									s_trans_status_out(c_l_link_idle)				<= '0';				-- inform the Transport Layer that the Link Layer is not Idle
-			when L_NoComm  		=> s_tx_data_out(31 downto 0) 		<= ALIGNp;
+			when L_NoComm  		=> s_tx_data_out(31 downto 0) 						<= ALIGNp;
 									s_phy_status_out(c_l_primitive_out)				<= '1';
-			when L_SendAlign  	=> s_tx_data_out(31 downto 0) 		<= ALIGNp;
+			when L_SendAlign  	=> s_tx_data_out(31 downto 0) 						<= ALIGNp;
 									s_phy_status_out(c_l_primitive_out)				<= '1';
-			when L_RESET	  	=> s_trans_status_out(5 downto 0)	<= "000000";
-									s_phy_status_out(1 downto 0) 	<= "00";
-									s_rx_data_out 					<= x"00000000";
-									s_tx_data_out 					<= x"00000000";
-									s_crc_data_in					<= x"00000000";
-									s_eof 							<= '0';
-									s_sof							<= '0';
-									s_data_valid					<= '0';
-									s_lfsr_data_in					<= x"00000000";
-									s_lfsr_en						<= '0';
-									s_lfsr_rst						<= '1';
+			when L_RESET	  	=> s_trans_status_out(5 downto 0)					<= "000000";
+									s_phy_status_out(1 downto 0) 					<= "00";
+									s_rx_data_out 									<= x"00000000";
+									s_tx_data_out 									<= x"00000000";
+									s_crc_data_in									<= x"00000000";
+									s_eof 											<= '0';
+									s_sof											<= '0';
+									s_crc_data_valid 								<= '0';
+									s_lfsr_data_in									<= x"00000000";
+									s_lfsr_en										<= '0';
+									s_lfsr_rst										<= '1';
+									s_trans_status_out(c_l_crc_good) 				<= '0';				-- reset the CRC valid flag to zero
 			-- Power Management SM states
-			when L_PMDeny	  	=> s_tx_data_out(31 downto 0) 		<= PMNAKp;
+			when L_PMDeny	  	=> s_tx_data_out(31 downto 0) 						<= PMNAKp;
 									s_phy_status_out(c_l_primitive_out)				<= '1';
-									s_trans_status_out(c_l_link_idle)			<= '0';				-- inform the Transport Layer that the Link Layer is not Idle
+									s_trans_status_out(c_l_link_idle)				<= '0';				-- inform the Transport Layer that the Link Layer is not Idle
 			
 			-- Transmit SM states
-			when L_SendChkRdy	=> s_tx_data_out(31 downto 0) 		<= X_RDYp;
+			when L_SendChkRdy	=> s_tx_data_out(31 downto 0) 						<= X_RDYp;
 									s_phy_status_out(c_l_primitive_out)				<= '1';
-									s_trans_status_out(c_l_link_idle)			<= '0';				-- inform the Transport Layer that the Link Layer is not Idle
-			when L_SendSOF	  	=> s_tx_data_out(31 downto 0) 		<= SOFp;
+									s_trans_status_out(c_l_link_idle)				<= '0';				-- inform the Transport Layer that the Link Layer is not Idle
+			when L_SendSOF	  	=> s_tx_data_out(31 downto 0) 						<= SOFp;
 									s_phy_status_out(c_l_primitive_out)				<= '1';
-									s_sof	 						<= '1';
-									s_data_valid 					<= '0';
-									s_lfsr_en						<= '0';
-									s_crc_data_in					<= x"00000000";
-									s_lfsr_rst						<= '0';
+									s_sof	 										<= '1';
+									s_crc_data_valid  								<= '0';
+									s_lfsr_en										<= '0';
+									s_crc_data_in									<= x"00000000";
+									s_lfsr_rst										<= '0';
 			when L_SendData	  	=> 
-									s_lfsr_rst						<= '1';
-									s_crc_data_in					<= s_tx_data_in;
-									s_lfsr_data_in					<= s_tx_data_in;
-									s_tx_data_out					<= s_lfsr_data_out;
+									s_lfsr_rst										<= '1';
+									s_crc_data_in									<= s_tx_data_in;
+									s_lfsr_data_in									<= s_tx_data_in;
+									s_tx_data_out									<= s_lfsr_data_out;
 									s_phy_status_out(c_l_primitive_out)				<= '0';
-									s_data_valid 					<= '1';
-									s_lfsr_en						<= '1';
-									s_sof							<= '0';
+									s_crc_data_valid  								<= '1';
+									s_lfsr_en										<= '1';
+									s_sof											<= '0';
 									if (s_trans_status_in(c_l_data_done) = '0') then
-										s_eof 						<= '1';
-										s_lfsr_data_in 				<= s_crc;
-										s_data_valid				<= '0';
+										s_eof 										<= '1';
+										s_lfsr_data_in 								<= s_crc;
+										s_crc_data_valid 							<= '0';
 									end if;
 									if (s_trans_status_in(c_l_data_done) = '1' and s_phy_status_in(c_l_primitive_in) = '1' and s_rx_data_in(31 downto 0)=HOLDp) then		-- more data to transmit and Physical sends HOLDAp
-										s_data_valid				<= '0';
-										s_lfsr_en					<= '0';
+										s_crc_data_valid 							<= '0';
+										s_lfsr_en									<= '0';
 									end if;
-			when L_RcvrHold	  	=> s_tx_data_out(31 downto 0) 		<= HOLDAp;
+			when L_RcvrHold	  	=> s_tx_data_out(31 downto 0) 						<= HOLDAp;
 									s_phy_status_out(c_l_primitive_out)				<= '1';
-									s_data_valid 					<= '0';
-									s_lfsr_en						<= '0';
-									s_crc_data_in					<= x"00000000";
-			when L_SendHold	  	=> s_tx_data_out(31 downto 0) 		<= HOLDp;
+									s_crc_data_valid  								<= '0';
+									s_lfsr_en										<= '0';
+									s_crc_data_in									<= x"00000000";
+			when L_SendHold	  	=> s_tx_data_out(31 downto 0) 						<= HOLDp;
 									s_phy_status_out(c_l_primitive_out)				<= '1';
-									s_data_valid					<= '0';
-									s_lfsr_en						<= '0';
-			when L_SendCRC	  	=> 	s_tx_data_out					<= s_lfsr_data_out;
-									s_eof 							<= '0';
-									s_data_valid 					<= '0';
-									s_lfsr_en						<= '0';
-			when L_SendEOF	  	=> s_tx_data_out(31 downto 0) 		<= EOFp;
+									s_crc_data_valid 								<= '0';
+									s_lfsr_en										<= '0';
+			when L_SendCRC	  	=> 	s_tx_data_out									<= s_lfsr_data_out;
+									s_eof 											<= '0';
+									s_crc_data_valid  								<= '0';
+									s_lfsr_en										<= '0';
+			when L_SendEOF	  	=> s_tx_data_out(31 downto 0) 						<= EOFp;
 									s_phy_status_out(c_l_primitive_out)				<= '1';
-			when L_Wait		  	=> s_tx_data_out(31 downto 0) 		<= WTRMp;			-- also need status to Transport
+			when L_Wait		  	=> s_tx_data_out(31 downto 0) 						<= WTRMp;			-- also need status to Transport
 									s_phy_status_out(c_l_primitive_out)				<= '1';
 									if(s_phy_status_in(c_l_primitive_in) = '1' and s_rx_data_in = R_OKp) then
 										s_trans_status_out(c_l_transmit_good) 		<= '1';
@@ -566,87 +570,87 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 										s_trans_status_out(c_l_transmit_bad) 		<= '1';
 									end if;
 			-- Receive SM states
-			when L_RcvChkRdy	=> s_tx_data_out(31 downto 0) 		<= R_RDYp;
+			when L_RcvChkRdy	=> s_tx_data_out(31 downto 0) 						<= R_RDYp;
 									s_phy_status_out(c_l_primitive_out)				<= '1';
-			when L_RcvWaitFifo	=> s_tx_data_out(31 downto 0) 		<= SYNCp;
+			when L_RcvWaitFifo	=> s_tx_data_out(31 downto 0) 						<= SYNCp;
 									s_phy_status_out(c_l_primitive_out)				<= '1';
-									s_data_valid 					<= '0';
-									s_sof 							<= '1';
-									s_lfsr_rst						<= '0';
-									s_trans_status_out(c_l_link_idle)			<= '0';				-- inform the Transport Layer that the Link Layer is not Idle
+									s_crc_data_valid  								<= '0';
+									s_sof 											<= '1';
+									s_lfsr_rst										<= '0';
+									s_trans_status_out(c_l_link_idle)				<= '0';				-- inform the Transport Layer that the Link Layer is not Idle
 			when L_RcvData		=> if(s_trans_status_in(c_l_escape) = '1') then
-										s_tx_data_out(31 downto 0) 	<= DMATp;
-										s_phy_status_out(c_l_primitive_out)				<= '1';
-										s_data_valid 				<= '0';
-										s_crc_data_in				<= x"00000000";
+										s_tx_data_out(31 downto 0) 					<= DMATp;
+										s_phy_status_out(c_l_primitive_out)			<= '1';
+										s_crc_data_valid  							<= '0';
+										s_crc_data_in								<= x"00000000";
 									else 
-										s_tx_data_out(31 downto 0) 	<= R_IPp;
-										s_phy_status_out(c_l_primitive_out)				<= '1';
-										s_lfsr_data_in				<= s_rx_data_in;
+										s_tx_data_out(31 downto 0) 					<= R_IPp;
+										s_phy_status_out(c_l_primitive_out)			<= '1';
+										s_lfsr_data_in								<= s_rx_data_in;
 										
-										s_crc_data_in				<= s_lfsr_data_out;
-										s_lfsr_en					<= '1';
-										s_lfsr_rst					<= '1';
+										s_crc_data_in								<= s_lfsr_data_out;
+										s_lfsr_en									<= '1';
+										s_lfsr_rst									<= '1';
 										if (s_lfsr_data_out'event) then
-											s_data_valid <= '1';
-											s_sof 		 <= '0';
+											s_crc_data_valid  						<= '1';
+											s_sof 									<= '0';
 										end if;
 										if (s_phy_status_in(c_l_primitive_in) = '1' and s_rx_data_in(31 downto 0)=EOFp) then
-											s_eof 						<= '1';
-											s_lfsr_data_in 				<= s_crc;
+											s_eof 									<= '1';
+											s_lfsr_data_in 							<= s_crc;
 										end if;
 										if (s_sof = '0') then
-											s_rx_data_out				<= s_lfsr_data_out;
+											s_rx_data_out							<= s_lfsr_data_out;
 										end if;
 										if (s_phy_status_in(c_l_primitive_in) = '1' and s_rx_data_in(31 downto 0)=HOLDp) then		-- more data to transmit and Physical sends HOLDAp
-										s_lfsr_en					<= '0';
+										s_lfsr_en									<= '0';
 										end if;
-										if (next_state = L_RcvEOF) then					-- don't send CRC to Transport.
-											s_rx_data_out 			<= x"00000000";		-- this actually needs to be something else as a placeholder
+										if (next_state = L_RcvEOF) then					-- don't send CRC to Transport Layer
+											s_rx_data_out 							<= x"00000000";		-- this actually needs to be something else as a placeholder
 										end if;
 										if (s_trans_status_in(c_l_fifo_ready) = '0') then
-											s_lfsr_en				<= '0';
+											s_lfsr_en								<= '0';
 										end if;
 									end if;
-			when L_Hold			=> s_tx_data_out(31 downto 0) 		<= HOLDp;
+			when L_Hold			=> s_tx_data_out(31 downto 0) 						<= HOLDp;
 									s_phy_status_out(c_l_primitive_out)				<= '1';
-									s_data_valid 					<= '0';
-									s_lfsr_en						<= '0';
-									s_crc_data_in					<= x"00000000";
-									s_sof							<= '0';
+									s_crc_data_valid  								<= '0';
+									s_lfsr_en										<= '0';
+									s_crc_data_in									<= x"00000000";
+									s_sof											<= '0';
 									if (s_trans_status_in(c_l_fifo_ready) = '1') then
-										s_lfsr_en					<= '1';
+										s_lfsr_en									<= '1';
 									end if;
-			when L_RcvHold		=> s_data_valid 					<= '0';
-									s_crc_data_in					<= x"00000000";
-									s_sof							<= '0';
-									s_lfsr_en					<= '0';
+			when L_RcvHold		=> s_crc_data_valid  								<= '0';
+									s_crc_data_in									<= x"00000000";
+									s_sof											<= '0';
+									s_lfsr_en										<= '0';
 									if(s_trans_status_in(c_l_escape) = '1') then
-										s_tx_data_out(31 downto 0) 	<= DMATp;
-										s_phy_status_out(c_l_primitive_out)				<= '1';
+										s_tx_data_out(31 downto 0) 					<= DMATp;
+										s_phy_status_out(c_l_primitive_out)			<= '1';
 									else 
-										s_tx_data_out(31 downto 0) 	<= HoldAp;
-										s_phy_status_out(c_l_primitive_out)				<= '1';
+										s_tx_data_out(31 downto 0)			 		<= HoldAp;
+										s_phy_status_out(c_l_primitive_out)			<= '1';
 									end if;
 									
-			when L_RcvEOF		=> s_tx_data_out(31 downto 0) 		<= R_IPp;
+			when L_RcvEOF		=> s_tx_data_out(31 downto 0) 						<= R_IPp;
 									s_phy_status_out(c_l_primitive_out)				<= '1';
-									s_eof 							<= '1';
-									s_data_valid					<= '0';
-									s_lfsr_en						<= '0';
-									s_sof							<= '0';
-			when L_GoodCRC		=> s_tx_data_out(31 downto 0) 		<= R_IPp;
+									s_eof 											<= '1';
+									s_crc_data_valid 								<= '0';
+									s_lfsr_en										<= '0';
+									s_sof											<= '0';
+			when L_GoodCRC		=> s_tx_data_out(31 downto 0) 						<= R_IPp;
 									s_phy_status_out(c_l_primitive_out)				<= '1';
-									s_data_valid 					<= '0';
-									s_crc_data_in					<= x"00000000";
-									s_trans_status_out(c_l_crc_good) <= '1';
-			when L_GoodEnd	  	=> s_tx_data_out(31 downto 0) 		<= R_OKp;
+									s_crc_data_valid  								<= '0';
+									s_crc_data_in									<= x"00000000";
+									s_trans_status_out(c_l_crc_good) 				<= '1';						-- inform the Transport Layer that the CRC was valid
+			when L_GoodEnd	  	=> s_tx_data_out(31 downto 0) 						<= R_OKp;
 									s_phy_status_out(c_l_primitive_out)				<= '1';
-			when L_BadEnd		=> s_tx_data_out(31 downto 0) 		<= R_ERRp;
+			when L_BadEnd		=> s_tx_data_out(31 downto 0) 						<= R_ERRp;
 									s_phy_status_out(c_l_primitive_out)				<= '1';
-									s_data_valid 					<= '0';
-									s_crc_data_in					<= x"00000000";
-			when others 		=> s_rx_data_out(31 downto 0) 		<= x"00000000";
+									s_crc_data_valid  								<= '0';
+									s_crc_data_in									<= x"00000000";
+			when others 		=> s_rx_data_out(31 downto 0) 						<= x"00000000";
         end case;
       end process;
 	  
