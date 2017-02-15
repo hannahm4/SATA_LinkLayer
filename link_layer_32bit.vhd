@@ -2,8 +2,8 @@
 --
 --! @file       link_layer_32bit.vhd
 --! @brief      Link Layer of the SATA controller with a 32bit wide data bus.
---! @details    
---
+--! @details    Takes input from the transport and physical layers to facilitate
+--				the receiving and sending of frames
 --! @author     Hannah Mohr
 --! @date       February 2017
 --! @copyright  Copyright (C) 2017 Ross K. Snider and Hannah D. Mohr
@@ -31,13 +31,34 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all; 
-use work.sata_defines.all;
 use ieee.std_logic_arith.all ;
-USE ieee.std_logic_unsigned.all ;
+use ieee.std_logic_unsigned.all ;
+
+use work.sata_defines.all;
+
+----------------------------------------------------------------------------
+--
+--! @brief      link layer state machine
+--! @details    Takes input from the transport and physical layers to determine
+--!				the receiving and sending of frames
+--! @param      clk	    			system clock
+--! @param      reset           	active low reset
+--! @param      trans_status_in     status vector from transport layer	[FIFO_RDY/n, transmit request, data complete, escape, bad FIS, error, good FIS]
+--! @param      trans_status_out    status vector to transport layer	[Link Idle, transmit bad status, transmit good status, crc good/bad, comm error, fail transmit]
+--! @param      tx_data_in	     	transmit data from transport layer
+--! @param      rx_data_out     	receive data to transport layer
+--! @param      tx_data_out     	transmit data to physical layer
+--! @param      rx_data_in      	receive data from physical layer
+--! @param      trans_status_in     status vector from physical layer	[primitive, PHYRDY/n, Dec_Err]
+--! @param      trans_status_out    status vector to physical layer		[primitive, clear status signals]
+--! @param      status_in       	status vector from the physical layer
+--! @param      perform_init    	send initiation command to physical layer
+--
+----------------------------------------------------------------------------
 
 entity link_layer_32bit is
 	port(-- Input
-			clock			:	in std_logic;
+			clk				:	in std_logic;
 			rst_n			:	in std_logic;
 
 			--Interface with Transport Layer
@@ -56,15 +77,41 @@ end entity;
 
 architecture link_layer_32bit_arch of link_layer_32bit is
 
+-- constants (naming convention: c --> constant, l --> link layer)
+	-- trans_status_in
+constant c_l_pause_transmit		: integer := 7;						-- Asserted when Transport Layer is not ready to transmit
+constant c_l_fifo_ready	 		: integer := 6;						-- Asserted when Transport Layer FIFO has room for more data
+constant c_l_transmit_request	: integer := 5;						-- Asserted when Transport Layer wants to begin a transmission
+constant c_l_data_done	 		: integer := 4;						-- Asserted the clock cycle after the last of the Transport Layer data has been transmitted
+constant c_l_escape		 		: integer := 3;						-- Asserted when the Transport Layer wants to terminate a transmission
+constant c_l_bad_fis	 		: integer := 2;						-- Asserted at the end of a "read" when a bad FIS is received by the Transport Layer
+constant c_l_error		 		: integer := 1;						-- Asserted at the end of a "read" when there is a different error in the FIS received by the Transport Layer
+constant c_l_good_fis	 		: integer := 0;						-- Asserted at the end of a "read" when a good FIS is received by the Transport Layer
+	-- trans_status_out
+constant c_l_link_idle	 		: integer := 5;						-- Asserted when the Link Layer is in the Idle state and is ready for a transmit request
+constant c_l_transmit_bad 		: integer := 4;						-- Asserted at the end of transmission to indicate in error
+constant c_l_transmit_good		: integer := 3;						-- Asserted at the end of transmission to successful transmission
+constant c_l_crc_good	 		: integer := 2;						-- Asserted when the CRC has been verified
+constant c_l_comm_err	 		: integer := 1;						-- Asserted when there is an error in the communication channel (PHYRDYn)
+constant c_l_fail_transmit 		: integer := 0;						-- Asserted when the communication channel fails during transmission
+	-- phy_status_in
+constant c_l_primitive_in 		: integer := 2;						-- Asserted when a valid primitive is being sent by the Physical Layer on the rx_data_in line
+constant c_l_phyrdy		 		: integer := 1;						-- Asserted when the Physical Layer has successfully established a communication channel
+constant c_l_dec_err	 		: integer := 0;						-- Asserted when there is an 8B10B encoding error
+	-- phy_status_out
+constant c_l_primitive_out 		: integer := 1;						-- Asserted when a valid primitive is being sent to the Physical Layer on the tx_data_out line
+constant c_l_clear_status	 	: integer := 0;						-- Asserted to indicate to the Physical Layer to clear its status vector
+
+-- state machine states
  type State_Type is (L_Idle, L_SyncEscape, L_NoCommErr, L_NoComm, L_SendAlign, L_RESET, 
 						L_SendChkRdy, L_SendSOF, L_SendData, L_RcvrHold, L_SendHold, L_SendCRC,
 						L_SendEOF, L_Wait, L_RcvChkRdy, L_RcvWaitFifo, L_RcvData, L_Hold, L_RcvHold,
 						L_RcvEOF, L_GoodCRC, L_GoodEnd, L_BadEnd, L_PMDeny);
   signal current_state, next_state : State_Type;
-
-
+  
+-- components
 component crc_gen_32 is
-   port(clock      : in  std_logic; 
+   port(clk	       : in  std_logic; 
         reset      : in  std_logic; 
         soc        : in  std_logic; 
         data       : in  std_logic_vector(31 downto 0); 
@@ -109,34 +156,9 @@ signal s_data_valid			: std_logic;							-- flag indicating that the input data 
 signal s_rx_data_in_temp	: std_logic_vector(31 downto 0);		-- vector that holds the previous primitive
 signal s_cont_flag			: std_logic;							-- flag to indicate that CONTp has been received
 
--- constants (naming convention: c --> constant, l --> link layer)
-	-- trans_status_in
-constant c_l_pause_transmit		: integer := 7;						-- Asserted when Transport Layer is not ready to transmit
-constant c_l_fifo_ready	 		: integer := 6;						-- Asserted when Transport Layer FIFO has room for more data
-constant c_l_transmit_request	: integer := 5;						-- Asserted when Transport Layer wants to begin a transmission
-constant c_l_data_done	 		: integer := 4;						-- Asserted the clock cycle after the last of the Transport Layer data has been transmitted
-constant c_l_escape		 		: integer := 3;						-- Asserted when the Transport Layer wants to terminate a transmission
-constant c_l_bad_fis	 		: integer := 2;						-- Asserted at the end of a "read" when a bad FIS is received by the Transport Layer
-constant c_l_error		 		: integer := 1;						-- Asserted at the end of a "read" when there is a different error in the FIS received by the Transport Layer
-constant c_l_good_fis	 		: integer := 0;						-- Asserted at the end of a "read" when a good FIS is received by the Transport Layer
-	-- trans_status_out
-constant c_l_link_idle	 		: integer := 5;						-- Asserted when the Link Layer is in the Idle state and is ready for a transmit request
-constant c_l_transmit_bad 		: integer := 4;						-- Asserted at the end of transmission to indicate in error
-constant c_l_transmit_good		: integer := 3;						-- Asserted at the end of transmission to successful transmission
-constant c_l_crc_good	 		: integer := 2;						-- Asserted when the CRC has been verified
-constant c_l_comm_err	 		: integer := 1;						-- Asserted when there is an error in the communication channel (PHYRDYn)
-constant c_l_fail_transmit 		: integer := 0;						-- Asserted when the communication channel fails during transmission
-	-- phy_status_in
-constant c_l_primitive_in 		: integer := 2;						-- Asserted when a valid primitive is being sent by the Physical Layer on the rx_data_in line
-constant c_l_phyrdy		 		: integer := 1;						-- Asserted when the Physical Layer has successfully established a communication channel
-constant c_l_dec_err	 		: integer := 0;						-- Asserted when there is an 8B10B encoding error
-	-- phy_status_out
-constant c_l_primitive_out 		: integer := 1;						-- Asserted when a valid primitive is being sent to the Physical Layer on the tx_data_out line
-constant c_l_clear_status	 	: integer := 0;						-- Asserted to indicate to the Physical Layer to clear its status vector
-
 begin 
 -- assign signals to inputs/outputs
-s_clk 				<= clock;
+s_clk 				<= clk;
 s_rst_n 			<= rst_n;
 s_trans_status_in 	<= trans_status_in;
 trans_status_out 	<= s_trans_status_out;
@@ -187,7 +209,7 @@ lfsr_component : scrambler
 					data_out 			=> s_lfsr_data_out);
 					
 crc_component : crc_gen_32
-		 port map (clock      			=> s_clk,
+		 port map (clk      			=> s_clk,
 				   reset      			=> s_rst_n,
 				   soc        			=> s_sof,
 				   data       			=> s_crc_data_in,
