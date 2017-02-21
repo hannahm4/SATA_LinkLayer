@@ -385,11 +385,11 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 			-- L_Wait is the state in which the Link Layer waits for a response from the Physical Layer on the quality of the completed transmission
 			when L_Wait		  	=> if (s_phy_status_in(c_l_phyrdy)='0') then				-- PHYRDYn: Physical Layer indicates the communication channel failed
 										next_state <= L_NoCommErr;
-									elsif (s_phy_status_in(c_l_primitive_in) = '1' and s_rx_data_in(31 downto 0)=R_OKp) then			-- Physical Layer indicates that the transmission was successful
+									elsif (s_phy_status_in(c_l_primitive_in) = '1' and s_rx_data_in(31 downto 0) = R_OKp) then			-- Physical Layer indicates that the transmission was successful
 										next_state <= L_Idle;
-									elsif (s_phy_status_in(c_l_primitive_in) = '1' and s_rx_data_in(31 downto 0)=R_ERRp) then			-- Physical Layer indicates there was an error with the transmission
+									elsif (s_phy_status_in(c_l_primitive_in) = '1' and s_rx_data_in(31 downto 0) = R_ERRp) then			-- Physical Layer indicates there was an error with the transmission
 										next_state <= L_Idle;
-									elsif (s_phy_status_in(c_l_primitive_in) = '1' and s_rx_data_in(31 downto 0)=SYNCp) then			-- Physical Layer requests synchronization, failing the transmission
+									elsif (s_phy_status_in(c_l_primitive_in) = '1' and s_rx_data_in(31 downto 0) = SYNCp) then			-- Physical Layer requests synchronization, failing the transmission
 										next_state <= L_Idle;
 									else 																								-- wait for a response from the Physical Layer
 										next_state <= L_Wait;
@@ -671,7 +671,7 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 			when L_RcvEOF		=> s_tx_data_out(31 downto 0) 						<= R_IPp;
 									s_phy_status_out(c_l_primitive_out)				<= '1';				-- inform the Physical Layer that a valid primitive is being transmitted
 									s_eof 											<= '1';
-									s_crc_data_valid 								<= '0';
+									s_crc_data_valid 								<= '0';	
 									s_lfsr_en										<= '0';
 									s_sof											<= '0';
 			when L_GoodCRC		=> s_tx_data_out(31 downto 0) 						<= R_IPp;
