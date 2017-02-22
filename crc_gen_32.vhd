@@ -49,13 +49,23 @@ ARCHITECTURE behave OF crc_gen_32 IS
  SIGNAL crc_r         	: STD_LOGIC_VECTOR(31 DOWNTO 0);
  SIGNAL crc_c          	: STD_LOGIC_VECTOR(31 DOWNTO 0);
  SIGNAL crc_i          	: STD_LOGIC_VECTOR(31 DOWNTO 0);
- SIGNAL crc_const      	: STD_LOGIC_VECTOR(31 DOWNTO 0) := x"52325032";
+ constant crc_const    	: STD_LOGIC_VECTOR(31 DOWNTO 0) := x"52325032";
  signal s_soc			: std_logic;
 
 BEGIN 
-
-s_soc 	<= 	soc when data_valid = '0' else 
-			'0' when data_valid = '1' and clk'event and clk = '1';
+	
+s_soc_process : PROCESS(clk, rst_n) 
+BEGIN                                    
+ IF(rst_n = '0') THEN  
+    s_soc <= '0';
+ elsif(rising_edge(clk)) then
+    IF(data_valid = '0') THEN 
+         s_soc <= soc;
+	else
+		s_soc <= '0';
+    END IF; 
+ END IF;    
+END PROCESS s_soc_process;      
 
 	      
 crc_i    <= crc_const when s_soc = '1' else
