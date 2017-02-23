@@ -89,7 +89,7 @@ constant c_l_bad_fis	 		: integer := 2;						-- Asserted at the end of a "read" 
 constant c_l_error		 		: integer := 1;						-- Asserted at the end of a "read" when there is a different error in the FIS received by the Transport Layer
 constant c_l_good_fis	 		: integer := 0;						-- Asserted at the end of a "read" when a good FIS is received by the Transport Layer
 	-- trans_status_out
-constant c_l_link_idle	 		: integer := 5;						-- Asserted when the Link Layer is in the Idle state and is ready for a transmit request
+constant c_l_link_ready	 		: integer := 5;						-- Asserted when the Link Layer is in the Idle state and is ready for a transmit request
 constant c_l_transmit_bad 		: integer := 4;						-- Asserted at the end of transmission to indicate in error
 constant c_l_transmit_good		: integer := 3;						-- Asserted at the end of transmission to successful transmission
 constant c_l_crc_good	 		: integer := 2;						-- Asserted when the CRC has been verified
@@ -535,7 +535,7 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 									s_phy_status_out(c_l_primitive_out)				<= '1';				-- inform the Physical Layer that a valid primitive is being transmitted
 									s_phy_status_out(c_l_clear_status)				<= '0';				-- the Physical Layer does not need to clear its status vector to the Link Layer
 									
-									s_trans_status_out(c_l_link_idle)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
+									s_trans_status_out(c_l_link_ready)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
 									s_trans_status_out(c_l_transmit_good) 			<= '0';				-- reset the transmit good status to zero
 									s_trans_status_out(c_l_transmit_bad) 			<= '0';				-- reset the transmit bad status to zero
 									s_trans_status_out(c_l_crc_good) 				<= '0';				-- reset the CRC valid flag to zero (the crc computation is not complete)
@@ -557,7 +557,7 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 									s_phy_status_out(c_l_primitive_out)				<= '1';				-- inform the Physical Layer that a valid primitive is being transmitted
 									s_phy_status_out(c_l_clear_status)				<= '0';				-- the Physical Layer does not need to clear its status vector to the Link Layer
 									
-									s_trans_status_out(c_l_link_idle)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
+									s_trans_status_out(c_l_link_ready)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
 									s_trans_status_out(c_l_transmit_good) 			<= '0';				-- reset the transmit good status to zero
 									s_trans_status_out(c_l_transmit_bad) 			<= '0';				-- reset the transmit bad status to zero
 									s_trans_status_out(c_l_crc_good) 				<= '0';				-- reset the CRC valid flag to zero (the crc computation is not complete)
@@ -579,7 +579,7 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 									s_phy_status_out(c_l_primitive_out)				<= '1';				-- inform the Physical Layer that a valid primitive is being transmitted
 									s_phy_status_out(c_l_clear_status) 				<= '0';				-- the Physical Layer does not need to clear its status vector to the Link Layer
 									
-									s_trans_status_out(c_l_link_idle)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
+									s_trans_status_out(c_l_link_ready)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
 									s_trans_status_out(c_l_transmit_good) 			<= '0';				-- reset the transmit good status to zero
 									s_trans_status_out(c_l_transmit_bad) 			<= '0';				-- reset the transmit bad status to zero
 									s_trans_status_out(c_l_crc_good) 				<= '0';				-- reset the CRC valid flag to zero (the crc computation is not complete)
@@ -601,7 +601,7 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 									s_phy_status_out(c_l_primitive_out)				<= '1';				-- inform the Physical Layer that a valid primitive is being transmitted
 									s_phy_status_out(c_l_clear_status) 				<= '1';				-- request that the Physical Layer clears its abort status to the Link Layer
 									
-									s_trans_status_out(c_l_link_idle)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
+									s_trans_status_out(c_l_link_ready)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
 									s_trans_status_out(c_l_transmit_good) 			<= '0';				-- reset the transmit good status to zero
 									s_trans_status_out(c_l_transmit_bad) 			<= '0';				-- reset the transmit bad status to zero
 									s_trans_status_out(c_l_crc_good) 				<= '0';				-- reset the CRC valid flag to zero (the crc computation is not complete)
@@ -623,7 +623,7 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 									s_phy_status_out(c_l_primitive_out)				<= '1';				-- inform the Physical Layer that a valid primitive is being transmitted
 									s_phy_status_out(c_l_clear_status)				<= '0';				-- the Physical Layer does not need to clear its status vector to the Link Layer
 									
-									s_trans_status_out(c_l_link_idle)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
+									s_trans_status_out(c_l_link_ready)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
 									s_trans_status_out(c_l_transmit_good) 			<= '0';				-- reset the transmit good status to zero
 									s_trans_status_out(c_l_transmit_bad) 			<= '0';				-- reset the transmit bad status to zero
 									s_trans_status_out(c_l_crc_good) 				<= '0';				-- reset the CRC valid flag to zero (the crc computation is not complete)
@@ -645,7 +645,7 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 									s_phy_status_out(c_l_primitive_out)				<= '0';				-- inform the Physical Layer that a valid primitive is not being transmitted
 									s_phy_status_out(c_l_clear_status)				<= '0';				-- the Physical Layer does not need to clear its status vector to the Link Layer
 									
-									s_trans_status_out(c_l_link_idle)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
+									s_trans_status_out(c_l_link_ready)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
 									s_trans_status_out(c_l_transmit_good) 			<= '0';				-- reset the transmit good status to zero
 									s_trans_status_out(c_l_transmit_bad) 			<= '0';				-- reset the transmit bad status to zero
 									s_trans_status_out(c_l_crc_good) 				<= '0';				-- reset the CRC valid flag to zero (the crc computation is not complete)
@@ -668,7 +668,7 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 									s_phy_status_out(c_l_primitive_out)				<= '1';				-- inform the Physical Layer that a valid primitive is being transmitted
 									s_phy_status_out(c_l_clear_status)				<= '0';				-- the Physical Layer does not need to clear its status vector to the Link Layer
 									
-									s_trans_status_out(c_l_link_idle)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
+									s_trans_status_out(c_l_link_ready)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
 									s_trans_status_out(c_l_transmit_good) 			<= '0';				-- reset the transmit good status to zero
 									s_trans_status_out(c_l_transmit_bad) 			<= '0';				-- reset the transmit bad status to zero
 									s_trans_status_out(c_l_crc_good) 				<= '0';				-- reset the CRC valid flag to zero (the crc computation is not complete)
@@ -691,7 +691,7 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 									s_phy_status_out(c_l_primitive_out)				<= '1';				-- inform the Physical Layer that a valid primitive is being transmitted
 									s_phy_status_out(c_l_clear_status)				<= '0';				-- the Physical Layer does not need to clear its status vector to the Link Layer
 									
-									s_trans_status_out(c_l_link_idle)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
+									s_trans_status_out(c_l_link_ready)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
 									s_trans_status_out(c_l_transmit_good) 			<= '0';				-- reset the transmit good status to zero
 									s_trans_status_out(c_l_transmit_bad) 			<= '0';				-- reset the transmit bad status to zero
 									s_trans_status_out(c_l_crc_good) 				<= '0';				-- reset the CRC valid flag to zero (the crc computation is not complete)
@@ -713,8 +713,8 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 									s_phy_status_out(c_l_primitive_out)				<= '1';				-- inform the Physical Layer that a valid primitive is being transmitted
 									s_phy_status_out(c_l_clear_status)				<= '0';				-- the Physical Layer does not need to clear its status vector to the Link Layer
 									
-									-----s_trans_status_out(c_l_link_idle)				<= '1';				-- inform the Transport Layer that the Link Layer is ready for data
-									s_trans_status_out(c_l_link_idle)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
+									s_trans_status_out(c_l_link_ready)				<= '1';				-- inform the Transport Layer that the Link Layer is ready for data
+									-----s_trans_status_out(c_l_link_ready)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
 									s_trans_status_out(c_l_transmit_good) 			<= '0';				-- reset the transmit good status to zero
 									s_trans_status_out(c_l_transmit_bad) 			<= '0';				-- reset the transmit bad status to zero
 									s_trans_status_out(c_l_crc_good) 				<= '0';				-- reset the CRC valid flag to zero (the crc computation is not complete)
@@ -736,7 +736,7 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 									s_phy_status_out(c_l_primitive_out)				<= '0';				-- inform the Physical Layer that a valid primitive is NOT being transmitted
 									s_phy_status_out(c_l_clear_status)				<= '0';				-- the Physical Layer does not need to clear its status vector to the Link Layer
 									
-									s_trans_status_out(c_l_link_idle)				<= '1';				-- inform the Transport Layer that the Link Layer is ready for data
+									s_trans_status_out(c_l_link_ready)				<= '1';				-- inform the Transport Layer that the Link Layer is ready for data
 									s_trans_status_out(c_l_transmit_good) 			<= '0';				-- reset the transmit good status to zero
 									s_trans_status_out(c_l_transmit_bad) 			<= '0';				-- reset the transmit bad status to zero
 									s_trans_status_out(c_l_crc_good) 				<= '0';				-- reset the CRC valid flag to zero (the crc computation is not complete)
@@ -784,7 +784,7 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 									s_phy_status_out(c_l_primitive_out)				<= '1';				-- inform the Physical Layer that a valid primitive is being transmitted
 									s_phy_status_out(c_l_clear_status)				<= '0';				-- the Physical Layer does not need to clear its status vector to the Link Layer
 									
-									s_trans_status_out(c_l_link_idle)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
+									s_trans_status_out(c_l_link_ready)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
 									s_trans_status_out(c_l_transmit_good) 			<= '0';				-- reset the transmit good status to zero
 									s_trans_status_out(c_l_transmit_bad) 			<= '0';				-- reset the transmit bad status to zero
 									s_trans_status_out(c_l_crc_good) 				<= '0';				-- reset the CRC valid flag to zero (the crc computation is not complete)
@@ -806,7 +806,7 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 									s_phy_status_out(c_l_primitive_out)				<= '1';				-- inform the Physical Layer that a valid primitive is being transmitted
 									s_phy_status_out(c_l_clear_status)				<= '0';				-- the Physical Layer does not need to clear its status vector to the Link Layer
 									
-									s_trans_status_out(c_l_link_idle)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
+									s_trans_status_out(c_l_link_ready)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
 									s_trans_status_out(c_l_transmit_good) 			<= '0';				-- reset the transmit good status to zero
 									s_trans_status_out(c_l_transmit_bad) 			<= '0';				-- reset the transmit bad status to zero
 									s_trans_status_out(c_l_crc_good) 				<= '0';				-- reset the CRC valid flag to zero (the crc computation is not complete)
@@ -828,7 +828,7 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 									s_phy_status_out(c_l_primitive_out)				<= '0';				-- inform the Physical Layer that a valid primitive is not being transmitted
 									s_phy_status_out(c_l_clear_status)				<= '0';				-- the Physical Layer does not need to clear its status vector to the Link Layer
 									
-									s_trans_status_out(c_l_link_idle)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
+									s_trans_status_out(c_l_link_ready)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
 									s_trans_status_out(c_l_transmit_good) 			<= '0';				-- reset the transmit good status to zero
 									s_trans_status_out(c_l_transmit_bad) 			<= '0';				-- reset the transmit bad status to zero
 									s_trans_status_out(c_l_crc_good) 				<= '0';				-- reset the CRC valid flag to zero (the crc computation is not complete)
@@ -850,7 +850,7 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 									s_phy_status_out(c_l_primitive_out)				<= '1';				-- inform the Physical Layer that a valid primitive is being transmitted
 									s_phy_status_out(c_l_clear_status)				<= '0';				-- the Physical Layer does not need to clear its status vector to the Link Layer
 									
-									s_trans_status_out(c_l_link_idle)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
+									s_trans_status_out(c_l_link_ready)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
 									s_trans_status_out(c_l_transmit_good) 			<= '0';				-- reset the transmit good status to zero
 									s_trans_status_out(c_l_transmit_bad) 			<= '0';				-- reset the transmit bad status to zero
 									s_trans_status_out(c_l_crc_good) 				<= '0';				-- reset the CRC valid flag to zero (the crc computation is not complete)
@@ -872,7 +872,7 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 									s_phy_status_out(c_l_primitive_out)				<= '1';				-- inform the Physical Layer that a valid primitive is being transmitted
 									s_phy_status_out(c_l_clear_status)				<= '0';				-- the Physical Layer does not need to clear its status vector to the Link Layer
 									
-									s_trans_status_out(c_l_link_idle)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
+									s_trans_status_out(c_l_link_ready)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
 									-- s_trans_status_out(c_l_transmit_good) 			<= '0';				-- reset the transmit good status to zero
 									-- s_trans_status_out(c_l_transmit_bad) 			<= '0';				-- reset the transmit bad status to zero
 									s_trans_status_out(c_l_crc_good) 				<= '0';				-- reset the CRC valid flag to zero (the crc computation is not complete)
@@ -905,7 +905,7 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 									s_phy_status_out(c_l_primitive_out)				<= '1';				-- inform the Physical Layer that a valid primitive is being transmitted
 									s_phy_status_out(c_l_clear_status)				<= '0';				-- the Physical Layer does not need to clear its status vector to the Link Layer
 									
-									s_trans_status_out(c_l_link_idle)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
+									s_trans_status_out(c_l_link_ready)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
 									s_trans_status_out(c_l_transmit_good) 			<= '0';				-- reset the transmit good status to zero
 									s_trans_status_out(c_l_transmit_bad) 			<= '0';				-- reset the transmit bad status to zero
 									s_trans_status_out(c_l_crc_good) 				<= '0';				-- reset the CRC valid flag to zero (the crc computation is not complete)
@@ -927,7 +927,7 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 									s_phy_status_out(c_l_primitive_out)				<= '1';				-- inform the Physical Layer that a valid primitive is being transmitted
 									s_phy_status_out(c_l_clear_status)				<= '0';				-- the Physical Layer does not need to clear its status vector to the Link Layer
 									
-									s_trans_status_out(c_l_link_idle)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
+									s_trans_status_out(c_l_link_ready)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
 									s_trans_status_out(c_l_transmit_good) 			<= '0';				-- reset the transmit good status to zero
 									s_trans_status_out(c_l_transmit_bad) 			<= '0';				-- reset the transmit bad status to zero
 									s_trans_status_out(c_l_crc_good) 				<= '0';				-- reset the CRC valid flag to zero (the crc computation is not complete)
@@ -951,7 +951,7 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 										s_phy_status_out(c_l_primitive_out)				<= '1';				-- inform the Physical Layer that a valid primitive is being transmitted
 										s_phy_status_out(c_l_clear_status)				<= '0';				-- the Physical Layer does not need to clear its status vector to the Link Layer
 										
-										s_trans_status_out(c_l_link_idle)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
+										s_trans_status_out(c_l_link_ready)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
 										s_trans_status_out(c_l_transmit_good) 			<= '0';				-- reset the transmit good status to zero
 										s_trans_status_out(c_l_transmit_bad) 			<= '0';				-- reset the transmit bad status to zero
 										s_trans_status_out(c_l_crc_good) 				<= '0';				-- reset the CRC valid flag to zero (the crc computation is not complete)
@@ -974,7 +974,7 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 										s_phy_status_out(c_l_primitive_out)				<= '1';				-- inform the Physical Layer that a valid primitive is being transmitted
 										s_phy_status_out(c_l_clear_status)				<= '0';				-- the Physical Layer does not need to clear its status vector to the Link Layer
 										
-										s_trans_status_out(c_l_link_idle)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
+										s_trans_status_out(c_l_link_ready)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
 										s_trans_status_out(c_l_transmit_good) 			<= '0';				-- reset the transmit good status to zero
 										s_trans_status_out(c_l_transmit_bad) 			<= '0';				-- reset the transmit bad status to zero
 										s_trans_status_out(c_l_crc_good) 				<= '0';				-- reset the CRC valid flag to zero (the crc computation is not complete)
@@ -1030,7 +1030,7 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 									s_phy_status_out(c_l_primitive_out)				<= '1';				-- inform the Physical Layer that a valid primitive is being transmitted
 									s_phy_status_out(c_l_clear_status)				<= '0';				-- the Physical Layer does not need to clear its status vector to the Link Layer
 									
-									s_trans_status_out(c_l_link_idle)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
+									s_trans_status_out(c_l_link_ready)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
 									s_trans_status_out(c_l_transmit_good) 			<= '0';				-- reset the transmit good status to zero
 									s_trans_status_out(c_l_transmit_bad) 			<= '0';				-- reset the transmit bad status to zero
 									s_trans_status_out(c_l_crc_good) 				<= '0';				-- reset the CRC valid flag to zero (the crc computation is not complete)
@@ -1058,7 +1058,7 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 									-- s_phy_status_out(c_l_primitive_out)				<= '0';				-- inform the Physical Layer that a valid primitive is not being transmitted
 									s_phy_status_out(c_l_clear_status)				<= '0';				-- the Physical Layer does not need to clear its status vector to the Link Layer
 									
-									s_trans_status_out(c_l_link_idle)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
+									s_trans_status_out(c_l_link_ready)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
 									s_trans_status_out(c_l_transmit_good) 			<= '0';				-- reset the transmit good status to zero
 									s_trans_status_out(c_l_transmit_bad) 			<= '0';				-- reset the transmit bad status to zero
 									s_trans_status_out(c_l_crc_good) 				<= '0';				-- reset the CRC valid flag to zero (the crc computation is not complete)
@@ -1088,7 +1088,7 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 									s_phy_status_out(c_l_primitive_out)				<= '1';				-- inform the Physical Layer that a valid primitive is being transmitted
 									s_phy_status_out(c_l_clear_status)				<= '0';				-- the Physical Layer does not need to clear its status vector to the Link Layer
 									
-									s_trans_status_out(c_l_link_idle)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
+									s_trans_status_out(c_l_link_ready)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
 									s_trans_status_out(c_l_transmit_good) 			<= '0';				-- reset the transmit good status to zero
 									s_trans_status_out(c_l_transmit_bad) 			<= '0';				-- reset the transmit bad status to zero
 									s_trans_status_out(c_l_crc_good) 				<= '0';				-- reset the CRC valid flag to zero (the crc computation is not complete)
@@ -1110,7 +1110,7 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 									s_phy_status_out(c_l_primitive_out)				<= '1';				-- inform the Physical Layer that a valid primitive is being transmitted
 									s_phy_status_out(c_l_clear_status)				<= '0';				-- the Physical Layer does not need to clear its status vector to the Link Layer
 									
-									s_trans_status_out(c_l_link_idle)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
+									s_trans_status_out(c_l_link_ready)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
 									s_trans_status_out(c_l_transmit_good) 			<= '0';				-- reset the transmit good status to zero
 									s_trans_status_out(c_l_transmit_bad) 			<= '0';				-- reset the transmit bad status to zero
 									s_trans_status_out(c_l_crc_good) 				<= '1';				-- inform the Transport Layer that the CRC was valid
@@ -1132,7 +1132,7 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 									s_phy_status_out(c_l_primitive_out)				<= '1';				-- inform the Physical Layer that a valid primitive is being transmitted
 									s_phy_status_out(c_l_clear_status)				<= '0';				-- the Physical Layer does not need to clear its status vector to the Link Layer
 									
-									s_trans_status_out(c_l_link_idle)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
+									s_trans_status_out(c_l_link_ready)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
 									s_trans_status_out(c_l_transmit_good) 			<= '1';				-- inform the Transport Layer that the transmission was good
 									s_trans_status_out(c_l_transmit_bad) 			<= '0';				-- reset the transmit bad status to zero
 									s_trans_status_out(c_l_crc_good) 				<= '0';				-- reset the CRC valid flag to zero (the crc computation is not complete)
@@ -1154,7 +1154,7 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 									s_phy_status_out(c_l_primitive_out)				<= '1';				-- inform the Physical Layer that a valid primitive is being transmitted
 									s_phy_status_out(c_l_clear_status)				<= '0';				-- the Physical Layer does not need to clear its status vector to the Link Layer
 									
-									s_trans_status_out(c_l_link_idle)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
+									s_trans_status_out(c_l_link_ready)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
 									s_trans_status_out(c_l_transmit_good) 			<= '0';				-- reset the transmit good status to zero
 									s_trans_status_out(c_l_transmit_bad) 			<= '0';				-- reset the transmit bad status to zero
 									s_trans_status_out(c_l_crc_good) 				<= '0';				-- reset the CRC valid flag to zero (the crc computation is not complete)
@@ -1176,7 +1176,7 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 									s_phy_status_out(c_l_primitive_out)				<= '0';				-- inform the Physical Layer that a valid primitive is not being transmitted
 									s_phy_status_out(c_l_clear_status)				<= '0';				-- the Physical Layer does not need to clear its status vector to the Link Layer
 									
-									s_trans_status_out(c_l_link_idle)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
+									s_trans_status_out(c_l_link_ready)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
 									s_trans_status_out(c_l_transmit_good) 			<= '0';				-- reset the transmit good status to zero
 									s_trans_status_out(c_l_transmit_bad) 			<= '0';				-- reset the transmit bad status to zero
 									s_trans_status_out(c_l_crc_good) 				<= '0';				-- reset the CRC valid flag to zero (the crc computation is not complete)
