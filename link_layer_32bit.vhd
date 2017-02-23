@@ -82,7 +82,8 @@ architecture link_layer_32bit_arch of link_layer_32bit is
 constant c_l_pause_transmit		: integer := 7;						-- Asserted when Transport Layer is not ready to transmit
 constant c_l_fifo_ready	 		: integer := 6;						-- Asserted when Transport Layer FIFO has room for more data
 constant c_l_transmit_request	: integer := 5;						-- Asserted when Transport Layer wants to begin a transmission
-constant c_l_data_done	 		: integer := 4;						-- Deasserted the clock cycle after the last of the Transport Layer data has been transmitted
+--constant c_l_data_done	 		: integer := 4;						-- Deasserted the clock cycle after the last of the Transport Layer data has been transmitted
+constant c_l_data_done	 		: integer := 5;						-- transmit request
 constant c_l_escape		 		: integer := 3;						-- Asserted when the Transport Layer wants to terminate a transmission
 constant c_l_bad_fis	 		: integer := 2;						-- Asserted at the end of a "read" when a bad FIS is received by the Transport Layer
 constant c_l_error		 		: integer := 1;						-- Asserted at the end of a "read" when there is a different error in the FIS received by the Transport Layer
@@ -241,7 +242,7 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 	  end if;
     end process;
     
-    NEXT_STATE_LOGIC: process (current_state, s_clk, s_rst_n, s_rx_data_in, s_trans_status_in, s_tx_data_in, s_phy_status_in, s_crc, s_cont_flag)
+    NEXT_STATE_LOGIC: process (current_state, s_rst_n, s_rx_data_in, s_trans_status_in, s_tx_data_in, s_phy_status_in, s_crc, s_cont_flag)
       begin 
         case (current_state) is
 			-- Idle SM states (top level)
@@ -704,7 +705,7 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 									
 									s_lfsr_data_in									<= c_no_data;		-- no data to input to the scrambler component
 									s_lfsr_en										<= '0';				-- do not enable the scrambler component
-									s_lfsr_rst										<= '1';				-- do not reset the scrambler component (active low) using the independent reset
+									s_lfsr_rst										<= '0';				-- reset the scrambler component (active low) using the independent reset
 
 			when L_SendSOF	  	=> 	s_tx_data_out(31 downto 0) 						<= SOFp;			-- send start of frame primitive
 									s_rx_data_out(31 downto 0)						<= c_no_data;		-- no data to transmit to the Transport Layer
@@ -712,21 +713,22 @@ STATE_MEMORY: process (s_clk,s_rst_n)
 									s_phy_status_out(c_l_primitive_out)				<= '1';				-- inform the Physical Layer that a valid primitive is being transmitted
 									s_phy_status_out(c_l_clear_status)				<= '0';				-- the Physical Layer does not need to clear its status vector to the Link Layer
 									
-									s_trans_status_out(c_l_link_idle)				<= '1';				-- inform the Transport Layer that the Link Layer is ready for data
+									-----s_trans_status_out(c_l_link_idle)				<= '1';				-- inform the Transport Layer that the Link Layer is ready for data
+									s_trans_status_out(c_l_link_idle)				<= '0';				-- inform the Transport Layer that the Link Layer is not ready for data
 									s_trans_status_out(c_l_transmit_good) 			<= '0';				-- reset the transmit good status to zero
 									s_trans_status_out(c_l_transmit_bad) 			<= '0';				-- reset the transmit bad status to zero
 									s_trans_status_out(c_l_crc_good) 				<= '0';				-- reset the CRC valid flag to zero (the crc computation is not complete)
 									s_trans_status_out(c_l_comm_err)	 			<= '0';				-- the communication link is good
 									s_trans_status_out(c_l_fail_transmit) 			<= '0';				-- the current transmission has not failed
 									
-									s_crc_data_in									<= c_no_data;		-- no data to input to the crc component
-									s_crc_data_valid 								<= '0';				-- inform the crc component that the input data is not valid (not part of a FIS payload)
+									s_crc_data_in									<= s_tx_data_in;		-- data from transport
+									s_crc_data_valid 								<= '1';				-- inform the crc component that the input data is valid (not part of a FIS payload)
 									s_sof											<= '1';				-- begin the crc computation and set the initial condition
 									s_eof											<= '0';				-- it is not time for the crc computation to end
 									
-									s_lfsr_data_in									<= c_no_data;		-- no data to input to the scrambler component
-									s_lfsr_en										<= '0';				-- do not enable the scrambler component
-									s_lfsr_rst										<= '0';				-- reset the LFSR scrambler component to verify the correct initial condition
+									s_lfsr_data_in									<=s_tx_data_in;		-- data from transport
+									s_lfsr_en										<= '1';				-- do not enable the scrambler component
+									s_lfsr_rst										<= '1';				-- reset is done 
 									
 			when L_SendData	  	=>  s_tx_data_out(31 downto 0) 						<= s_lfsr_data_out;	-- transmit the scrambled data to the Physical Layer
 									s_rx_data_out(31 downto 0)						<= c_no_data;		-- no data to transmit to the Transport Layer
