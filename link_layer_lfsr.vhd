@@ -57,7 +57,7 @@ use ieee.std_logic_1164.all;
 
 entity scrambler is 
   port (clk 		: in std_logic;
-		rst			: in std_logic;
+		rst_n			: in std_logic;
 		scram_en	: in std_logic;
 		scram_rst	: in std_logic;
 		data_in 	: in std_logic_vector (31 downto 0);
@@ -122,15 +122,18 @@ begin
     data_c(30) <= data_in(30) xor lfsr_q(0) xor lfsr_q(1) xor lfsr_q(6) xor lfsr_q(7) xor lfsr_q(8) xor lfsr_q(11) xor lfsr_q(12) xor lfsr_q(13) xor lfsr_q(15);
     data_c(31) <= data_in(31) xor lfsr_q(0) xor lfsr_q(5) xor lfsr_q(6) xor lfsr_q(7) xor lfsr_q(10) xor lfsr_q(11) xor lfsr_q(12) xor lfsr_q(14) xor lfsr_q(15);
 
-    process (clk,rst) begin 
-      if (rst = '0') then 											-- reset
+    process (clk,rst_n) begin 
+      if (rst_n = '0') then 											-- reset
         lfsr_q <= b"1111111111111111";								-- return to seed value for consisent initial condition
-        data_out <= b"00000000000000000000000000000000";			-- clear the output
+        data_out <= x"00000000";			-- clear the output
       elsif (rising_edge(clk)) then 
         if (scram_rst = '0') then 									-- if the scrambler reset has been activated, return to the seed value (starting the scrambler over)
           lfsr_q <= b"1111111111111111";
+		  data_out <= x"00000000";			-- clear the output
         elsif (scram_en = '1') then 
           lfsr_q <= lfsr_c; 										-- update the lfsr value to be used in the calculation with the result of the previous calculation
+		elsif (scram_en = '0') then
+			data_out <= x"00000000";	-- clear the output when paused
        	end if; 
 
         if (scram_en = '1') then 
