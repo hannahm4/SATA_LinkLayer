@@ -54,18 +54,18 @@ ARCHITECTURE behave OF crc_gen_32 IS
 
 BEGIN 
 	
---s_soc_process : PROCESS(clk, rst_n) 
---BEGIN                                    
- --IF(rst_n = '0') THEN  
- --   s_soc <= '0';
- --elsif(rising_edge(clk)) then
- --   IF(data_valid = '0') THEN 
+s_soc_process : PROCESS(clk, rst_n) 
+BEGIN                                    
+ IF(rst_n = '0') THEN  
+    s_soc <= '0';
+ elsif(rising_edge(clk)) then
+    IF(data_valid = '0') THEN 
          s_soc <= soc;
-	--else
-	--	s_soc <= '0';
-  --  END IF; 
--- END IF;    
---END PROCESS s_soc_process;      
+	else
+		s_soc <= '0';
+    END IF; 
+ END IF;    
+END PROCESS s_soc_process;      
 
 	      
 crc_i    <= crc_const when s_soc = '1' else
