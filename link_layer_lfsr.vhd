@@ -57,9 +57,10 @@ use ieee.std_logic_1164.all;
 
 entity scrambler is 
   port (clk 		: in std_logic;
-		rst_n			: in std_logic;
+		rst_n		: in std_logic;
 		scram_en	: in std_logic;
 		scram_rst	: in std_logic;
+		scram_rdy	: out std_logic;
 		data_in 	: in std_logic_vector (31 downto 0);
 		data_out 	: out std_logic_vector (31 downto 0));
 end scrambler;
@@ -124,21 +125,29 @@ begin
 
     process (clk,rst_n) begin 
       if (rst_n = '0') then 											-- reset
-        lfsr_q <= b"1111111111111111";								-- return to seed value for consisent initial condition
+        lfsr_q <= b"1111111111111111";								-- return to seed value for consistent initial condition
         data_out <= x"00000000";			-- clear the output
       elsif (rising_edge(clk)) then 
         if (scram_rst = '0') then 									-- if the scrambler reset has been activated, return to the seed value (starting the scrambler over)
           lfsr_q <= b"1111111111111111";
 		  data_out <= x"00000000";			-- clear the output
+		  scram_rdy <= '0';
         elsif (scram_en = '1') then 
           lfsr_q <= lfsr_c; 										-- update the lfsr value to be used in the calculation with the result of the previous calculation
+		  data_out <= data_c;
+		  scram_rdy <= '1';
 		elsif (scram_en = '0') then
-			data_out <= x"00000000";	-- clear the output when paused
+		--  data_out <= x"00000000";	-- clear the output when paused
+		--  scram_rdy <= '0';
+		--elsif (scram_en = '1') then 
+       --   data_out <= data_c; 										-- assign the output data
+		 -- data_out <= data_in;											-- scrambler off
        	end if; 
 
-        if (scram_en = '1') then 
-          data_out <= data_c; 										-- assign the output data
-       	end if; 
+        --if (scram_en = '1') then 
+         -- data_out <= data_c; 										-- assign the output data
+		 -- data_out <= data_in;											-- scrambler off
+       --	end if; 
       end if; 
     end process; 
 end architecture scrambler_arch; 
